@@ -126,8 +126,8 @@ See [GENERATOR_DOC.md](./GENERATOR_DOC.md) for building and publishing.
 ```bash
 npm run updateVersion          # bumps the patch version in package.json and src/manifest.json
 git commit -am "chore: release v$(node -p 'require("./package.json").version')"
-git tag "v$(node -p 'require("./package.json").version')"
-git push --follow-tags
+git tag -a "v$(node -p 'require("./package.json").version')" -m release
+git push --follow-tags   # pushes annotated tags only, hence tag -a
 ```
 
 The tag starts [the publish workflow](.github/workflows/publish.yml). It checks that the tag
