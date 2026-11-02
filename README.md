@@ -3,6 +3,10 @@
 Export a notebook, or a set of notes that link to each other, as **one** self-contained
 HTML page or **one** EPUB book for an e-reader (Kindle with KOReader, Kobo, phone readers).
 
+![The HTML export of a six-note notebook: a sidebar grouped by Diátaxis type, the hub note pinned as Start here, and an On this page outline](images/reader-start.png)
+
+*All screenshots show a made-up "Weather station" notebook of six linked notes.*
+
 ## What it does
 
 - **Linked notes become one book.** Notes that link to each other (in either direction,
@@ -23,11 +27,41 @@ HTML page or **one** EPUB book for an e-reader (Kindle with KOReader, Kobo, phon
   emoji turned into text labels, and plain serif styling that follows the reader's font
   settings.
 
+## What you get
+
+**Diagrams and dark mode.** Mermaid diagrams are drawn into the page, so the file needs no
+internet connection. The theme follows your system, or the toggle at the top right.
+
+![A note in dark mode with a rendered Mermaid flowchart](images/reader-dark-diagram.png)
+
+**Links between notes.** Hover a link to preview the section it points to. Each note
+ends with the notes that link to it and previous / next links.
+
+![A how-to note with a link preview open, Linked from backlinks and previous / next links](images/reader-howto-preview.png)
+
+**Search.** Type in the search box (or press `/`) to search every heading and paragraph in
+the book.
+
+![Search results for "battery", with matches highlighted](images/reader-search.png)
+
+**Blog layout.** Notebooks without Diátaxis tags get one list of notes with their dates.
+
+![The blog layout: one dated list of notes in the sidebar](images/reader-blog.png)
+
+<table>
+<tr>
+<td width="50%"><strong>On a phone</strong>, the sidebar folds behind a menu button.<br><br><img src="images/reader-mobile.png" alt="The reader on a phone-sized screen" width="300"></td>
+<td width="50%"><strong>EPUB</strong> keeps the text plain, so the e-reader's own font and size apply. Diagrams become images. (Shown here in a browser, in greyscale.)<br><br><img src="images/epub-chapter.png" alt="An EPUB chapter with a diagram rendered as an image" width="340"></td>
+</tr>
+</table>
+
 ## How to use
 
 - Right-click a notebook → **Export notebook as book (HTML / EPUB)…**
 - Select notes, right-click → **Export selected notes as book (HTML / EPUB)…**
 - Or **Tools → Export notebook as book…** for the current notebook.
+
+<img src="images/options-dialog.png" alt="The export options dialog: format, grouping, HTML layout and sub-notebooks" width="420">
 
 Choose the format (HTML, EPUB or both) and how to group notes:
 
