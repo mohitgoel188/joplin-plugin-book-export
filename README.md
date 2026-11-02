@@ -121,6 +121,20 @@ and `src/webview` is the diagram renderer that runs in the progress dialog.
 
 See [GENERATOR_DOC.md](./GENERATOR_DOC.md) for building and publishing.
 
+### Releasing
+
+```bash
+npm run updateVersion          # bumps the patch version in package.json and src/manifest.json
+git commit -am "chore: release v$(node -p 'require("./package.json").version')"
+git tag "v$(node -p 'require("./package.json").version')"
+git push --follow-tags
+```
+
+The tag starts [the publish workflow](.github/workflows/publish.yml). It checks that the tag
+matches both version numbers, runs the tests, publishes to npm with provenance (npm
+trusted publishing, so no token is stored), and attaches the `.jpl` to a GitHub release.
+Joplin lists the new version within about an hour.
+
 ## Licence
 
 MIT. Bundles [mermaid](https://github.com/mermaid-js/mermaid) (MIT).
