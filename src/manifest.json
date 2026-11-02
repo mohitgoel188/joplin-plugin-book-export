@@ -1,0 +1,28 @@
+{
+	"manifest_version": 1,
+	"id": "io.github.mohitgoel188.book-export",
+	"app_min_version": "3.7",
+	"version": "1.0.0",
+	"name": "Book Export",
+	"description": "Export a notebook or linked notes as one HTML or EPUB book, with Mermaid diagrams and images",
+	"author": "Mohit Goel",
+	"homepage_url": "https://github.com/mohitgoel188/joplin-plugin-book-export",
+	"repository_url": "https://github.com/mohitgoel188/joplin-plugin-book-export",
+	"keywords": [
+		"export",
+		"epub",
+		"html",
+		"kindle",
+		"koreader",
+		"mermaid",
+		"notebook",
+		"backlinks"
+	],
+	"categories": [
+		"productivity",
+		"files"
+	],
+	"screenshots": [],
+	"icons": {},
+	"promo_tile": {}
+}

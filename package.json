@@ -1,0 +1,51 @@
+{
+  "name": "joplin-plugin-book-export",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "vitest run",
+    "dist": "webpack --env joplin-plugin-config=buildMain && webpack --env joplin-plugin-config=buildExtraScripts && webpack --env joplin-plugin-config=createArchive",
+    "prepare": "npm run dist",
+    "updateVersion": "webpack --env joplin-plugin-config=updateVersion",
+    "update": "npm install -g generator-joplin && yo joplin --node-package-manager npm --update --force",
+    "vendor": "mkdir -p src/webview/vendor && cp node_modules/mermaid/dist/mermaid.min.js src/webview/vendor/",
+    "predist": "npm run vendor"
+  },
+  "license": "MIT",
+  "keywords": [
+    "joplin-plugin"
+  ],
+  "files": [
+    "publish"
+  ],
+  "devDependencies": {
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^18.7.13",
+    "chalk": "^4.1.0",
+    "copy-webpack-plugin": "^11.0.0",
+    "fs-extra": "^10.1.0",
+    "glob": "^8.0.3",
+    "mermaid": "^12.2.0",
+    "tar": "^6.1.11",
+    "ts-loader": "^9.3.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0"
+  },
+  "description": "Export a notebook or linked notes as one HTML or EPUB book, with Mermaid diagrams and images",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mohitgoel188/joplin-plugin-book-export.git"
+  },
+  "homepage": "https://github.com/mohitgoel188/joplin-plugin-book-export",
+  "dependencies": {
+    "dom-serializer": "^3.1.1",
+    "htmlparser2": "^12.0.0",
+    "jszip": "^3.10.2",
+    "markdown-it": "^15.0.3",
+    "markdown-it-attrs": "^5.0.1",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-mark": "^4.0.0",
+    "markdown-it-task-lists": "^2.1.1"
+  }
+}

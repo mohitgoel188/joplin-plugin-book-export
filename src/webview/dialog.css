@@ -1,0 +1,27 @@
+.book-export {
+	width: 400px;
+	padding: 4px 8px;
+	font-family: var(--joplin-font-family, sans-serif);
+	color: var(--joplin-color, inherit);
+}
+
+.book-export h3 {
+	margin: 0 0 8px;
+}
+
+#book-export-status {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-size: 13px;
+}
+
+.book-export label {
+	display: block;
+	margin: 6px 0;
+}
+
+.book-export fieldset {
+	border: 1px solid var(--joplin-divider-color, #ccc);
+	margin: 0 0 10px;
+	padding: 6px 10px;
+}

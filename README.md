@@ -1,0 +1,55 @@
+# Book Export for Joplin
+
+Export a notebook, or a set of notes that link to each other, as **one** self-contained
+HTML page or **one** EPUB book for an e-reader (Kindle with KOReader, Kobo, phone readers).
+
+## What it does
+
+- **Linked notes become one book.** Notes that link to each other (in either direction,
+  directly or through a chain) are exported together. The note with the most links is the
+  first chapter, and the rest follow the order its links appear in.
+- **Unlinked notes are kept together**, as one "Unlinked notes" book per notebook.
+- **Links keep working.** A link to another note in the book, including a link to a
+  heading inside it (`[x](:/id#anchor)`, the Note Link System `{#anchor}` syntax), jumps to
+  the right place in the export.
+- **Mermaid diagrams are rendered**: inline SVG in HTML, PNG in EPUB (e-ink readers cannot
+  draw HTML-labelled SVG). Rendering happens locally, inside Joplin.
+- **Images (attachments) are embedded**, so the files work offline and can be shared.
+- **EPUB is tuned for e-ink**: nested table of contents per note and heading, emoji turned
+  into text labels, plain serif styling that follows the reader's font settings.
+
+## How to use
+
+- Right-click a notebook → **Export notebook as book (HTML / EPUB)…**
+- Select notes, right-click → **Export selected notes as book (HTML / EPUB)…**
+- Or **Tools → Export notebook as book…** for the current notebook.
+
+Choose the format (HTML, EPUB or both) and how to group notes:
+
+| Grouping | Result |
+|---|---|
+| Linked sets (default) | One file per set of linked notes, plus one for unlinked notes |
+| Everything in one book | One file for the whole selection |
+| One file per note | One file per note |
+
+Books are saved to the folder set in **Settings → Book Export** (you are asked the first
+time). Links to notes outside the export open the note in Joplin (HTML) or show its title
+(EPUB).
+
+## Development
+
+```bash
+npm install
+npm test        # unit tests (vitest) for the core in src/core
+npm run dist    # builds publish/<id>.jpl
+```
+
+`src/core` holds the export logic with no Joplin dependency (grouping, link rewriting,
+rendering, HTML and EPUB assembly) and is fully unit-tested. `src/*.ts` is the Joplin glue,
+and `src/webview` is the diagram renderer that runs in the progress dialog.
+
+See [GENERATOR_DOC.md](./GENERATOR_DOC.md) for building and publishing.
+
+## Licence
+
+MIT. Bundles [mermaid](https://github.com/mermaid-js/mermaid) (MIT).
