@@ -3,6 +3,7 @@ import attrs from 'markdown-it-attrs';
 import footnote from 'markdown-it-footnote';
 import mark from 'markdown-it-mark';
 import taskLists from 'markdown-it-task-lists';
+import { headingElementId, headingText, uniqueSlugs } from './slugs';
 
 /** A heading that goes into the book's table of contents. */
 export interface Heading {
@@ -20,9 +21,18 @@ export interface RenderOptions {
 	readonly xhtml: boolean;
 }
 
+/** A run of the note that starts at a top-level `##` or `###` heading (or at the top, with no heading). */
+export interface Block {
+	readonly heading: Heading | null;
+	readonly headingHtml: string;
+	readonly bodyHtml: string;
+}
+
 export interface RenderedNote {
 	readonly html: string;
 	readonly headings: readonly Heading[];
+	/** The same html split at top-level `##` / `###` headings; joined, they equal `html`. */
+	readonly blocks: readonly Block[];
 	/** Mermaid sources in order; the html holds a `mermaidSlot(i)` marker for each. */
 	readonly mermaid: readonly string[];
 }
@@ -73,19 +83,45 @@ function installRules(md: Md, options: RenderOptions, mermaid: string[]): void {
 	};
 }
 
-/** Give every TOC-level heading an id and collect it. Runs on the token stream before rendering. */
-function collectHeadings(tokens: ReturnType<Md['parse']>, chapterAnchor: string): Heading[] {
+type Tokens = ReturnType<Md['parse']>;
+
+/**
+ * Give every heading an id and collect the TOC-level ones. A heading without a
+ * `{#id}` gets Joplin's slug for it (see `slugs.ts`), the same id `AnchorPlan`
+ * resolves links to. Runs on the token stream before rendering.
+ */
+function collectHeadings(tokens: Tokens, chapterAnchor: string): Heading[] {
+	const opens = tokens.flatMap((token, i) => (token.type === 'heading_open' ? [{ token, text: headingText(tokens[i + 1]?.content ?? '') }] : []));
+	const slugged = opens.filter(({ token }) => token.attrGet('id') === null);
+	const slugList = uniqueSlugs(slugged.map((s) => s.text));
+	const slugs = new Map(slugged.map((h, i) => [h.token, slugList[i]]));
 	const headings: Heading[] = [];
-	tokens.forEach((token, i) => {
-		if (token.type !== 'heading_open') return;
-		const level = Number(token.tag.slice(1));
-		if (!TOC_LEVELS.has(level)) return;
-		const id = String(token.attrGet('id') ?? `${chapterAnchor}-h${headings.length + 1}`);
+	for (const { token, text } of opens) {
+		const own = token.attrGet('id');
+		const id = own === null ? headingElementId(chapterAnchor, slugs.get(token) ?? '') : String(own);
 		token.attrSet('id', id);
-		const text = (tokens[i + 1]?.content ?? '').replace(/\s*\{[^}]*\}\s*$/, '').replace(/[*_`]/g, '');
-		headings.push({ level, id, text });
-	});
+		const level = Number(token.tag.slice(1));
+		if (TOC_LEVELS.has(level)) headings.push({ level, id, text });
+	}
 	return headings;
+}
+
+/** Split the rendered note at top-level `##` / `###` headings. */
+function splitBlocks(md: Md, tokens: Tokens, headings: readonly Heading[], env: Parameters<Md['renderer']['render']>[2]): Block[] {
+	const byId = new Map(headings.map((h) => [h.id, h]));
+	const starts = tokens.flatMap((t, i) => (t.type === 'heading_open' && t.level === 0 && TOC_LEVELS.has(Number(t.tag.slice(1))) ? [i] : []));
+	const render = (from: number, to: number) => md.renderer.render(tokens.slice(from, to), md.options, env);
+	const blocks: Block[] = [];
+	if (!starts.length || starts[0] > 0) blocks.push({ heading: null, headingHtml: '', bodyHtml: render(0, starts[0] ?? tokens.length) });
+	starts.forEach((start, n) => {
+		const end = start + 3; // heading_open, inline, heading_close
+		blocks.push({
+			heading: byId.get(String(tokens[start].attrGet('id'))) ?? null,
+			headingHtml: render(start, end),
+			bodyHtml: render(end, starts[n + 1] ?? tokens.length),
+		});
+	});
+	return blocks;
 }
 
 /** Render one note's (already link-rewritten) markdown to HTML. */
@@ -96,8 +132,9 @@ export function renderNote(markdown: string, options: RenderOptions): RenderedNo
 	const env = {};
 	const tokens = md.parse(markdown, env);
 	const headings = collectHeadings(tokens, options.chapterAnchor);
-	const html = md.renderer.render(tokens, md.options, env);
-	return { html, headings, mermaid };
+	const blocks = splitBlocks(md, tokens, headings, env);
+	const html = blocks.map((b) => b.headingHtml + b.bodyHtml).join('');
+	return { html, headings, blocks, mermaid };
 }
 
 export const escapeHtml = (text: string) =>

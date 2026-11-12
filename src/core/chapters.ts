@@ -1,7 +1,7 @@
 import { AnchorPlan, noteAnchor } from './anchors';
 import { emojiToText } from './emoji';
 import { extractLinks } from './links';
-import { type Heading, MERMAID_SLOT, mermaidSlot, renderNote } from './render';
+import { type Block, type Heading, MERMAID_SLOT, mermaidSlot, renderNote } from './render';
 import { type LinkTargets, rewriteNoteLinks } from './rewriteLinks';
 import { stripContentsSection } from './sections';
 import type { BookSources, RenderedDiagram, Resource } from './sources';
@@ -14,6 +14,8 @@ export interface Chapter {
 	readonly anchor: string;
 	readonly html: string;
 	readonly headings: readonly Heading[];
+	/** `html` split at top-level `##` / `###` headings, for readers that page by section. */
+	readonly blocks?: readonly Block[];
 }
 
 export interface PreparedBook {
@@ -74,7 +76,9 @@ export async function prepareBook(input: Book, sources: BookSources, format: Cha
 	const mermaid: string[] = [];
 	const chapters = book.notes.map((note): Chapter => {
 		const anchor = noteAnchor(note.id);
-		const rendered = renderNote(text(rewriteNoteLinks(anchors.applyTo(note), targets)), {
+		// Local `#slug` links first: the cross-note pass emits `#<final id>` links of its own.
+		const linked = rewriteNoteLinks(anchors.rewriteLocalLinks(note.id, anchors.applyTo(note)), targets);
+		const rendered = renderNote(text(linked), {
 			chapterAnchor: anchor,
 			xhtml: format.xhtml,
 			resourceSrc: (id) => {
@@ -84,8 +88,9 @@ export async function prepareBook(input: Book, sources: BookSources, format: Cha
 		});
 		const offset = mermaid.length;
 		mermaid.push(...rendered.mermaid);
-		const html = rendered.html.replace(MERMAID_SLOT, (_m, i: string) => mermaidSlot(offset + Number(i)));
-		return { note, title: text(note.title).trim(), anchor, html, headings: rendered.headings };
+		const renumber = (html: string) => html.replace(MERMAID_SLOT, (_m, i: string) => mermaidSlot(offset + Number(i)));
+		const blocks = rendered.blocks.map((b) => ({ ...b, bodyHtml: renumber(b.bodyHtml) }));
+		return { note, title: text(note.title).trim(), anchor, html: renumber(rendered.html), headings: rendered.headings, blocks };
 	});
 	return { chapters, resources, mermaid };
 }

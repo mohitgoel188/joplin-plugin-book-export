@@ -14,8 +14,26 @@ describe('renderNote', () => {
 		expect(r.html).toContain('<h2 id="h-state">Current state</h2>');
 		expect(r.headings).toEqual([
 			{ level: 2, id: 'h-state', text: 'Current state' },
-			{ level: 3, id: 'n-x-h2', text: 'Sub one' },
+			{ level: 3, id: 'n-x-sub-one', text: 'Sub one' },
 		]);
+		expect(r.html).toContain('<h4 id="n-x-deep">Deep</h4>');
+	});
+
+	it("slugs headings the way Joplin does, numbering repeats", () => {
+		const r = renderNote('## Why ds-v2 writes `user_platform_access`\n\n## App code → registry (`a/b.py`)\n\n## Notes\n\n## Notes', opts);
+		expect(r.headings.map((h) => h.id)).toEqual([
+			'n-x-why-ds-v2-writes-user_platform_access',
+			'n-x-app-code-registry-abpy',
+			'n-x-notes',
+			'n-x-notes-1',
+		]);
+	});
+
+	it('splits the html into blocks at top-level ## and ### headings', () => {
+		const r = renderNote('Intro\n\n## A\n\nText a\n\n### A1\n\nText a1\n\n> ## Quoted', opts);
+		expect(r.blocks.map((b) => b.heading?.text ?? null)).toEqual([null, 'A', 'A1']);
+		expect(r.blocks.map((b) => b.headingHtml + b.bodyHtml).join('')).toBe(r.html);
+		expect(r.blocks[2].bodyHtml).toContain('Quoted');
 	});
 
 	it('replaces mermaid fences with slots and keeps other fences', () => {
@@ -82,6 +100,47 @@ describe('buildHtmlBook', () => {
 		expect(html).toContain('data-layout="blog"');
 		expect(html).not.toContain('class="start"');
 		expect(html).toContain('<h2>Notes</h2>');
+	});
+
+	it('points #slug links at Joplin heading slugs, within a note and across notes', async () => {
+		const a = note('a', `See [steps](#how-to-guides) and [far](:/${nid('b')}#pending-schema-change).\n\n## How-to guides\n\nx`);
+		const b = note('b', `${link('a', undefined, 'back')}\n\n## Pending schema change\n\ny`);
+		const html = await buildHtmlBook({ title: 'A', kind: 'linked', notes: [a, b] }, sources(), 'blog');
+		const ids = new Set(Array.from(html.matchAll(/id="([^"]+)"/g), (m) => m[1]));
+		const hrefs = Array.from(html.matchAll(/href="#([^"'+ ]+)"/g), (m) => m[1]);
+		expect(hrefs).toContain(`${noteAnchor(a.id)}-how-to-guides`);
+		expect(hrefs).toContain(`${noteAnchor(b.id)}-pending-schema-change`);
+		expect(hrefs.filter((h) => !ids.has(h))).toEqual([]);
+	});
+
+	it('pages a note written as Diátaxis sections, keeping section links working', async () => {
+		const body = [
+			'Which part: [Tutorial](#tutorial), [Reference](#reference).',
+			'## Tutorial\n\nFollow along.\n\n### First run\n\nDo this.',
+			'## How-to guides\n\n### Deploy\n\nSteps.\n\n### Roll back\n\nSteps back.',
+			'## Reference\n\nTables.',
+			'## Explanation\n\n### Why\n\nBecause.',
+		].join('\n\n');
+		const one = note('one', body);
+		const html = await buildHtmlBook({ title: one.title, kind: 'single', notes: [one] }, sources());
+		const base = noteAnchor(one.id);
+		expect(html).toContain('data-layout="diataxis"');
+		expect(html).toContain(`<a class="start" href="#${base}"`);
+		for (const [group, page] of [['Tutorials', 'first-run'], ['How-to guides', 'deploy'], ['How-to guides', 'roll-back'], ['Reference', 'reference'], ['Explanation', 'why']]) {
+			expect(html).toContain(`<article class="note" id="note-${base}-${page}"`);
+			expect(html).toMatch(new RegExp(`<h2>${group}</h2>.*href="#${base}-${page}"`, 's'));
+		}
+		// The ## id survives on the first page of its part, so "#tutorial" still lands somewhere.
+		expect(html).toMatch(new RegExp(`id="note-${base}-first-run"[^]*?<span id="${base}-tutorial" class="section-anchor"></span>[^]*?</article>`));
+		const ids = new Set(Array.from(html.matchAll(/id="([^"]+)"/g), (m) => m[1]));
+		const hrefs = Array.from(html.matchAll(/href="#([^"'+ ]+)"/g), (m) => m[1]);
+		expect(hrefs.filter((h) => !ids.has(h))).toEqual([]);
+	});
+
+	it('keeps a sectioned note as one page in the blog layout', async () => {
+		const one = note('one', '## Tutorial\n\nx\n\n## Reference\n\ny');
+		const html = await buildHtmlBook({ title: one.title, kind: 'single', notes: [one] }, sources(), 'blog');
+		expect(html.match(/<article class="note"/g)).toHaveLength(1);
 	});
 
 	it('falls back to the diagram source when rendering fails', async () => {

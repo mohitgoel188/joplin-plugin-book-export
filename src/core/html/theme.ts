@@ -5,6 +5,9 @@
  * picks one (`data-theme` on <html>).
  */
 export const READER_CSS = String.raw`
+/* Marks a Diátaxis part on the first page of that part; jumping to it shows the page from the top. */
+.section-anchor { display: block; scroll-margin-top: 100vh; }
+
 :root {
   --bg: #fbfaf7; --surface: #ffffff; --panel: #f4f2ed; --fg: #22211f; --muted: #6d6a64;
   --line: #e4e0d8; --accent: #b4532a; --accent-soft: #f6e6dc; --link: #1f5f99;

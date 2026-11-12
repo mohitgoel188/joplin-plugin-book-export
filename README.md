@@ -102,9 +102,21 @@ or *architecture* mean explanation (the full list is in `src/core/diataxis.ts`).
 match nothing go under *Other notes*. In a linked set, the hub note (the one with the most
 links) is pinned at the top as **Start here**.
 
-Diátaxis works best when each note is written as exactly one type. The layout only groups
-notes; it does not split a note that mixes them. For more on writing in each type, see
-[diataxis.fr](https://diataxis.fr).
+There are two ways to write Diátaxis docs in Joplin, and the layout handles both:
+
+| You wrote… | The reader shows |
+|---|---|
+| **One note per type**, each tagged `diataxis/<type>` and linked from a hub note | each note as a page in its group; the hub is *Start here* |
+| **One note in parts**, with `##` headings named *Tutorial*, *How-to guides*, *Reference* and *Explanation* (at least two of them) | the text before the first part as *Start here*; each `###` inside a part as its own page in that group (a part with no `###` is one page) |
+
+Auto picks the Diátaxis layout for either. The blog layout keeps a note in parts as one page.
+The layout does not split a note that mixes types without such headings. For more on writing
+in each type, see [diataxis.fr](https://diataxis.fr).
+
+**Links to headings work as in Joplin.** Every heading gets the same anchor Joplin gives it
+(`## Pending schema change` → `#pending-schema-change`), so `[x](#pending-schema-change)` and
+`[x](:/<note id>#pending-schema-change)` open the right page and section in the export. Note
+Link System ids (`## Heading {#my-id}`) keep working as before.
 
 ## Development
 

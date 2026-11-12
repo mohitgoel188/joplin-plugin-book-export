@@ -66,7 +66,8 @@ export const READER_JS = String.raw`
       document.title = note.getAttribute('data-title') + ' · ' + document.body.getAttribute('data-book');
     }
     document.body.classList.remove('nav-open');
-    if (target && target !== note.querySelector('.hero h1')) target.scrollIntoView();
+    // A section-anchor marks a part (e.g. "How-to guides") whose first page this is: show the page from the top.
+    if (target && target !== note.querySelector('.hero h1') && !target.classList.contains('section-anchor')) target.scrollIntoView();
     else window.scrollTo(0, 0);
   }
 
@@ -77,6 +78,8 @@ export const READER_JS = String.raw`
   }
 
   window.addEventListener('hashchange', route);
+  // Opening the file with a #fragment: the browser jumps to it after this script has run; route again.
+  window.addEventListener('load', function () { if (location.hash) route(); });
   document.addEventListener('click', function (event) {
     var a = event.target.closest('a[href^="#"]');
     if (!a) return;

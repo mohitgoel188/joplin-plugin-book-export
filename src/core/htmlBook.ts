@@ -1,8 +1,9 @@
 import { type Chapter, diagramSourceBlock, fillDiagrams, prepareBook } from './chapters';
-import { DOC_TYPES, type DocType, docTypeOf, TAG_PREFIX } from './diataxis';
+import { DOC_TYPES, type DocType, hasDiataxisSections, TAG_PREFIX } from './diataxis';
 import { READER_JS } from './html/app';
 import { READER_CSS } from './html/theme';
 import { buildLinkGraph } from './grouping';
+import { type Page, pagesOf, shortTitle } from './readerPages';
 import { escapeHtml } from './render';
 import { readingMinutes } from './sections';
 import { type BookSources, toBase64 } from './sources';
@@ -12,50 +13,39 @@ import type { Book } from './types';
 export type HtmlLayout = 'diataxis' | 'blog';
 export type LayoutChoice = HtmlLayout | 'auto';
 
-/** `auto` picks Diátaxis when any note carries a `diataxis/*` tag, else the blog layout. */
+export { shortTitle };
+
+/**
+ * `auto` picks Diátaxis when any note carries a `diataxis/*` tag or is written as
+ * Diátaxis sections (`## Tutorial`, `## How-to guides`, …), else the blog layout.
+ */
 export function resolveLayout(book: Book, choice: LayoutChoice): HtmlLayout {
 	if (choice !== 'auto') return choice;
-	return book.notes.some((n) => (n.tags ?? []).some((t) => t.toLowerCase().startsWith(TAG_PREFIX))) ? 'diataxis' : 'blog';
+	const typed = (n: Book['notes'][number]) => (n.tags ?? []).some((t) => t.toLowerCase().startsWith(TAG_PREFIX)) || hasDiataxisSections(n.body);
+	return book.notes.some(typed) ? 'diataxis' : 'blog';
 }
 
 interface Group {
 	readonly label: string;
 	readonly need: string;
-	readonly entries: readonly Entry[];
-}
-
-interface Entry {
-	readonly chapter: Chapter;
-	readonly type: DocType;
-	/** Short name for navigation: the title minus the book title it repeats. */
-	readonly navTitle: string;
-}
-
-/** The part of `title` after a shared prefix with the book title, or the whole title. */
-export function shortTitle(title: string, bookTitle: string): string {
-	const strip = (s: string) => s.replace(/[\p{Extended_Pictographic}\u{FE0F}]/gu, '').trim();
-	const t = strip(title);
-	const b = strip(bookTitle);
-	if (!b || t === b || !t.toLowerCase().startsWith(b.toLowerCase())) return title;
-	const rest = t.slice(b.length).replace(/^[\s:—–-]+/, '');
-	return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : title;
+	readonly entries: readonly Page[];
 }
 
 /**
  * Reading order for the HTML reader.
  *
- * - `diataxis`: the hub (first note of a linked book) as "Start here", then the
- *   rest grouped by Diátaxis type, book order kept within a group.
- * - `blog`: one "Notes" list in book order (hub first for a linked book).
+ * - `diataxis`: the hub (first note of a linked book, or the overview of a note
+ *   written as Diátaxis sections) as "Start here", then the rest grouped by
+ *   Diátaxis type, book order kept within a group. Sectioned notes are split
+ *   into one page per section (see `pagesOf`).
+ * - `blog`: one "Notes" list in book order (hub first for a linked book), one page per note.
  */
-export function readerOrder(book: Book, chapters: readonly Chapter[], layout: HtmlLayout = 'diataxis'): { start: Entry | null; groups: Group[] } {
-	const entries = chapters.map((chapter): Entry => ({
-		chapter,
-		type: docTypeOf(chapter.note),
-		navTitle: shortTitle(chapter.title, book.title),
-	}));
+export function readerOrder(book: Book, chapters: readonly Chapter[], layout: HtmlLayout = 'diataxis'): { start: Page | null; groups: Group[] } {
+	const split = layout === 'diataxis';
+	const entries = chapters.flatMap((chapter) => pagesOf(chapter, book.title, split));
 	if (layout === 'blog') return { start: null, groups: [{ label: 'Notes', need: '', entries }] };
-	const start = book.kind === 'linked' && entries.length > 1 ? entries[0] : null;
+	const firstSplit = entries.length > 1 && entries[1]?.chapter === entries[0]?.chapter;
+	const start = (book.kind === 'linked' || firstSplit) && entries.length > 1 ? entries[0] : null;
 	const rest = start ? entries.slice(1) : entries;
 	const groups = DOC_TYPES.map((t) => ({ label: t.label, need: t.need, entries: rest.filter((e) => e.type === t.type) })).filter(
 		(g) => g.entries.length,
@@ -78,13 +68,13 @@ function chips(tags: readonly string[]): string {
 
 const isoDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-function sidebar(start: Entry | null, groups: readonly Group[], layout: HtmlLayout): string {
-	const link = (e: Entry) => {
+function sidebar(start: Page | null, groups: readonly Group[], layout: HtmlLayout): string {
+	const link = (e: Page) => {
 		const date = layout === 'blog' && e.chapter.note.updatedTime ? `<small>${isoDate(e.chapter.note.updatedTime)}</small>` : '';
-		return `<li><a href="#${e.chapter.anchor}" data-note-link="note-${e.chapter.anchor}">${escapeHtml(e.navTitle)}${date}</a></li>`;
+		return `<li><a href="#${e.anchor}" data-note-link="note-${e.anchor}">${escapeHtml(e.navTitle)}${date}</a></li>`;
 	};
 	const startHtml = start
-		? `<a class="start" href="#${start.chapter.anchor}" data-note-link="note-${start.chapter.anchor}"><small>Start here</small><span>${escapeHtml(start.navTitle === start.chapter.title ? 'Overview' : start.navTitle)}</span></a>`
+		? `<a class="start" href="#${start.anchor}" data-note-link="note-${start.anchor}"><small>Start here</small><span>${escapeHtml(start.navTitle === start.chapter.title ? 'Overview' : start.navTitle)}</span></a>`
 		: '';
 	const groupHtml = groups
 		.map(
@@ -95,23 +85,23 @@ function sidebar(start: Entry | null, groups: readonly Group[], layout: HtmlLayo
 	return `<nav class="sidebar" aria-label="Notes">${startHtml}${groupHtml}</nav>`;
 }
 
-function article(entry: Entry, backlinks: readonly Entry[], prev: Entry | undefined, next: Entry | undefined, body: string, eyebrow: string): string {
+function article(entry: Page, backlinks: readonly Page[], prev: Page | undefined, next: Page | undefined, body: string, eyebrow: string): string {
 	const { chapter } = entry;
 	const meta = [
 		chapter.note.updatedTime ? `<span>Updated ${isoDate(chapter.note.updatedTime)}</span>` : '',
-		`<span>${readingMinutes(chapter.note.body)} min read</span>`,
+		`<span>${readingMinutes(entry.html.replace(/<[^>]+>/g, ' '))} min read</span>`,
 		`<span class="chips">${chips(chapter.note.tags ?? [])}</span>`,
 	].join('');
 	const back = backlinks.length
-		? `<div class="backlinks"><h2>Linked from</h2><ul>${backlinks.map((b) => `<li><a href="#${b.chapter.anchor}">${escapeHtml(b.navTitle)}</a></li>`).join('')}</ul></div>`
+		? `<div class="backlinks"><h2>Linked from</h2><ul>${backlinks.map((b) => `<li><a href="#${b.anchor}">${escapeHtml(b.navTitle)}</a></li>`).join('')}</ul></div>`
 		: '';
 	const pager =
 		prev || next
-			? `<nav class="pager">${prev ? `<a class="prev" href="#${prev.chapter.anchor}"><small>← Previous</small>${escapeHtml(prev.navTitle)}</a>` : ''}${next ? `<a class="next" href="#${next.chapter.anchor}"><small>Next →</small>${escapeHtml(next.navTitle)}</a>` : ''}</nav>`
+			? `<nav class="pager">${prev ? `<a class="prev" href="#${prev.anchor}"><small>← Previous</small>${escapeHtml(prev.navTitle)}</a>` : ''}${next ? `<a class="next" href="#${next.anchor}"><small>Next →</small>${escapeHtml(next.navTitle)}</a>` : ''}</nav>`
 			: '';
-	return `<article class="note" id="note-${chapter.anchor}" data-title="${escapeHtml(entry.navTitle)}">
+	return `<article class="note" id="note-${entry.anchor}" data-title="${escapeHtml(entry.navTitle)}">
 <header class="hero">${eyebrow ? `<div class="eyebrow">${escapeHtml(eyebrow)}</div>` : ''}
-<h1 id="${chapter.anchor}">${escapeHtml(chapter.title)}</h1><div class="meta">${meta}</div></header>
+<h1 id="${entry.anchor}">${escapeHtml(entry.title)}</h1><div class="meta">${meta}</div></header>
 <div class="prose">${body}</div>
 <footer class="note-foot">${back}${pager}</footer>
 </article>`;
@@ -141,22 +131,23 @@ export async function buildHtmlBook(book: Book, sources: BookSources, layoutChoi
 
 	const { start, groups } = readerOrder(book, prepared.chapters, layout);
 	const ordered = [...(start ? [start] : []), ...groups.flatMap((g) => g.entries)];
-	const byId = new Map(ordered.map((e) => [e.chapter.note.id, e]));
 	const graph = buildLinkGraph(book.notes);
-	const backlinksOf = (id: string) => ordered.filter((e) => e.chapter.note.id !== id && (graph.get(e.chapter.note.id) ?? []).includes(id));
+	const noteStarts = ordered.filter((e) => e.isNoteStart);
+	const backlinksOf = (e: Page) =>
+		e.isNoteStart ? noteStarts.filter((o) => o.chapter.note.id !== e.chapter.note.id && (graph.get(o.chapter.note.id) ?? []).includes(e.chapter.note.id)) : [];
 
 	const articles = ordered.map((e, i) =>
-		article(e, backlinksOf(e.chapter.note.id), ordered[i - 1], ordered[i + 1], fillDiagrams(e.chapter.html, place), e === start ? 'Start here' : layout === 'diataxis' ? typeLabel(e.type) : ''),
+		article(e, backlinksOf(e), ordered[i - 1], ordered[i + 1], fillDiagrams(e.html, place), e === start ? 'Start here' : layout === 'diataxis' ? typeLabel(e.type) : ''),
 	);
 	const title = escapeHtml(book.title);
-	const first = byId.get(ordered[0]?.chapter.note.id ?? '');
+	const first = ordered[0];
 	return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="Joplin Book Export"><title>${title}</title><style>${READER_CSS}</style></head>
 <body data-book="${title}" data-layout="${layout}">
 <header class="topbar">
 <button class="icon-btn nav-toggle" aria-label="Show notes">☰</button>
-<a class="brand" href="#${first?.chapter.anchor ?? ''}">${title}</a>
+<a class="brand" href="#${first?.anchor ?? ''}">${title}</a>
 <div class="search" role="search"><input type="search" placeholder="Search notes  ( / )" aria-label="Search notes"><div class="results"></div></div>
 <button class="icon-btn theme-toggle" aria-label="Switch light or dark">◐</button>
 </header>

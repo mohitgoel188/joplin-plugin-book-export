@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { docTypeOf } from '../src/core/diataxis';
+import { docTypeOf, hasDiataxisSections, sectionTypeOf } from '../src/core/diataxis';
 import { readerOrder, resolveLayout, shortTitle } from '../src/core/htmlBook';
 import { readingMinutes, stripContentsSection } from '../src/core/sections';
 import type { Chapter } from '../src/core/chapters';
 import type { Book, NoteRecord } from '../src/core/types';
 import { note } from './fixtures';
 
-const tagged = (title: string, tags: string[] = []): NoteRecord => ({ ...note(title.slice(0, 16), ''), title, tags });
+const tagged = (title: string, tags: string[] = [], body = ''): NoteRecord => ({ ...note(title.slice(0, 16), body), title, tags });
 
 describe('docTypeOf', () => {
 	it('prefers a diataxis tag over the title', () => {
@@ -76,6 +76,21 @@ describe('reader helpers', () => {
 		const { start, groups } = readerOrder({ title: 'Hub', kind: 'linked', notes }, chapters, 'blog');
 		expect(start).toBeNull();
 		expect(groups.map((g) => [g.label, g.entries.length])).toEqual([['Notes', 3]]);
+	});
+
+	it('recognises ## headings that name Diátaxis parts', () => {
+		expect(['Tutorial', 'How-to guides', 'How-tos', 'how to', 'Reference', 'Explanation', '📘 Reference'].map(sectionTypeOf)).toEqual([
+			'tutorial', 'how-to', 'how-to', 'how-to', 'reference', 'explanation', 'reference',
+		]);
+		expect(sectionTypeOf('Reference tables')).toBeNull();
+		expect(hasDiataxisSections('## Tutorial\n\nx\n\n## Reference {#r}\n\ny')).toBe(true);
+		expect(hasDiataxisSections('## Reference\n\n```\n## Tutorial\n```')).toBe(false);
+		expect(hasDiataxisSections('### Tutorial\n\n### Reference')).toBe(false);
+	});
+
+	it('auto layout picks Diátaxis for a note written as Diátaxis sections', () => {
+		const book: Book = { title: 'x', kind: 'single', notes: [tagged('One', [], '## Tutorial\n\nx\n\n## How-to guides\n\ny')] };
+		expect(resolveLayout(book, 'auto')).toBe('diataxis');
 	});
 
 	it('auto layout picks Diátaxis only when a note carries a diataxis tag', () => {
