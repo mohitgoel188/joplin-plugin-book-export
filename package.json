@@ -1,6 +1,6 @@
 {
   "name": "joplin-plugin-book-export",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "test": "vitest run",
     "dist": "webpack --env joplin-plugin-config=buildMain && webpack --env joplin-plugin-config=buildExtraScripts && webpack --env joplin-plugin-config=createArchive",
